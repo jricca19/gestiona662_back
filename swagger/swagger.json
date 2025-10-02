@@ -1,0 +1,1333 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Gestiona662 API",
+        "version": "1.0.0",
+        "description": "API documentation for Gestiona662 backend"
+    },
+    "servers": [
+        {
+            "url": "http://localhost:3000",
+            "description": "Development server"
+        },
+        {
+            "url": "https://gestiona662-backend.vercel.app",
+            "description": "Production server"
+        }
+    ],
+    "security": [
+        {
+            "BearerAuth": []
+        }
+    ],
+    "components": {
+        "securitySchemes": {
+            "BearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
+            }
+        },
+        "schemas": {
+            "UserSignup": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 20,
+                        "example": "John"
+                    },
+                    "lastName": {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 20,
+                        "example": "Doe"
+                    },
+                    "ci": {
+                        "type": "string",
+                        "example": "12345678"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "john.doe@example.com"
+                    },
+                    "password": {
+                        "type": "string",
+                        "minLength": 8,
+                        "maxLength": 20,
+                        "example": "password123"
+                    },
+                    "phoneNumber": {
+                        "type": "string",
+                        "example": "1234567890"
+                    },
+                    "role": {
+                        "type": "string",
+                        "enum": [
+                            "TEACHER",
+                            "STAFF"
+                        ],
+                        "example": "TEACHER"
+                    }
+                },
+                "required": [
+                    "name",
+                    "lastName",
+                    "ci",
+                    "email",
+                    "password",
+                    "phoneNumber",
+                    "role"
+                ]
+            },
+            "UserLogin": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "john.doe@example.com"
+                    },
+                    "password": {
+                        "type": "string",
+                        "minLength": 8,
+                        "maxLength": 20,
+                        "example": "password123"
+                    }
+                },
+                "required": [
+                    "email",
+                    "password"
+                ]
+            },
+            "School": {
+                "type": "object",
+                "properties": {
+                    "schoolNumber": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "example": 123
+                    },
+                    "departmentId": {
+                        "type": "string",
+                        "example": "dept123"
+                    },
+                    "cityName": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 50,
+                        "example": "CityName"
+                    },
+                    "address": {
+                        "type": "string",
+                        "minLength": 5,
+                        "maxLength": 100,
+                        "example": "123 Main St"
+                    }
+                },
+                "required": [
+                    "schoolNumber",
+                    "departmentId",
+                    "cityName",
+                    "address"
+                ]
+            },
+            "Publication": {
+                "type": "object",
+                "properties": {
+                    "schoolId": {
+                        "type": "string",
+                        "example": "school123"
+                    },
+                    "grade": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 6,
+                        "example": 3
+                    },
+                    "startDate": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2023-01-01"
+                    },
+                    "endDate": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2023-12-31"
+                    },
+                    "shift": {
+                        "type": "string",
+                        "enum": [
+                            "MORNING",
+                            "AFTERNOON",
+                            "FULL_DAY"
+                        ],
+                        "example": "MORNING"
+                    }
+                },
+                "required": [
+                    "schoolId",
+                    "grade",
+                    "startDate",
+                    "endDate",
+                    "shift"
+                ]
+            },
+            "Postulation": {
+                "type": "object",
+                "properties": {
+                    "publicationId": {
+                        "type": "string",
+                        "example": "pub123"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2023-01-01"
+                    },
+                    "appliesToAllDays": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "postulationDays": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "date": {
+                                    "type": "string",
+                                    "format": "date",
+                                    "example": "2023-01-02"
+                                }
+                            }
+                        }
+                    }
+                },
+                "required": [
+                    "publicationId",
+                    "createdAt",
+                    "appliesToAllDays"
+                ]
+            },
+            "Rating": {
+                "type": "object",
+                "properties": {
+                    "publicationId": {
+                        "type": "string",
+                        "example": "pub123"
+                    },
+                    "teacherId": {
+                        "type": "string",
+                        "example": "teacher123"
+                    },
+                    "score": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10,
+                        "example": 8
+                    },
+                    "comment": {
+                        "type": "string",
+                        "example": "Great teacher!"
+                    }
+                },
+                "required": [
+                    "publicationId",
+                    "score",
+                    "comment"
+                ]
+            }
+        }
+    },
+    "paths": {
+        "/health": {
+            "get": {
+                "summary": "Health Check",
+                "description": "Returns the health status of the API",
+                "responses": {
+                    "200": {
+                        "description": "API is running",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "message": "Service is running"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": [
+                    "Health"
+                ]
+            }
+        },
+        "/v1/auth/login": {
+            "post": {
+                "summary": "User Login",
+                "description": "Authenticate a user and return a JWT token",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UserLogin"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Login successful",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "token": "jwt-token-example"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid credentials"
+                    },
+                    "401": {
+                        "description": "Unauthorized - Invalid password"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Authentication"
+                ]
+            }
+        },
+        "/v1/auth/signup": {
+            "post": {
+                "summary": "User Signup",
+                "description": "Register a new user",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UserSignup"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "User created successfully"
+                    },
+                    "400": {
+                        "description": "Validation error or duplicate data",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "message": "Correo electr\u00f3nico ya registrado"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Authentication"
+                ]
+            }
+        },
+        "/v1/schools": {
+            "get": {
+                "summary": "Get Schools",
+                "description": "Retrieve a list of schools",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of schools",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/School"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - Invalid or missing token"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Schools"
+                ]
+            },
+            "post": {
+                "summary": "Create School",
+                "description": "Create a new school",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/School"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "School created successfully"
+                    },
+                    "400": {
+                        "description": "Validation error or duplicate school",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "message": "Ya existe una escuela con el mismo n\u00famero, departamento y ciudad."
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - Invalid or missing token"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Schools"
+                ]
+            }
+        },
+        "/v1/schools/{id}": {
+            "get": {
+                "summary": "Get School by ID",
+                "description": "Retrieve a school by its ID",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "School details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/School"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - Invalid or missing token"
+                    },
+                    "404": {
+                        "description": "School not found"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Schools"
+                ]
+            },
+            "put": {
+                "summary": "Update School",
+                "description": "Update an existing school",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/School"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "School updated successfully"
+                    },
+                    "400": {
+                        "description": "Validation error or duplicate school"
+                    },
+                    "401": {
+                        "description": "Unauthorized - Invalid or missing token"
+                    },
+                    "404": {
+                        "description": "School not found"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Schools"
+                ]
+            },
+            "delete": {
+                "summary": "Delete School",
+                "description": "Delete a school by its ID",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "School deleted successfully"
+                    },
+                    "401": {
+                        "description": "Unauthorized - Invalid or missing token"
+                    },
+                    "404": {
+                        "description": "School not found"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Schools"
+                ]
+            }
+        },
+        "/v1/publications": {
+            "get": {
+                "summary": "Get Publications",
+                "description": "Retrieve a list of publications",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of publications",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Publication"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - Invalid or missing token"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Publications"
+                ]
+            },
+            "post": {
+                "summary": "Create Publication",
+                "description": "Create a new publication",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Publication"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Publication created successfully"
+                    },
+                    "400": {
+                        "description": "Validation error or duplicate publication",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "message": "Ya existe una publicaci\u00f3n abierta para esa escuela, grado, turno y rango de fechas."
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - Invalid or missing token"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Publications"
+                ]
+            }
+        },
+        "/v1/publications/{id}": {
+            "get": {
+                "summary": "Get Publication by ID",
+                "description": "Retrieve a publication by its ID",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Publication details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Publication"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - Invalid or missing token"
+                    },
+                    "404": {
+                        "description": "Publication not found"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Publications"
+                ]
+            },
+            "put": {
+                "summary": "Update Publication",
+                "description": "Update an existing publication",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Publication"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Publication updated successfully"
+                    },
+                    "400": {
+                        "description": "Validation error"
+                    },
+                    "401": {
+                        "description": "Unauthorized - Invalid or missing token"
+                    },
+                    "404": {
+                        "description": "Publication not found"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Publications"
+                ]
+            },
+            "delete": {
+                "summary": "Delete Publication",
+                "description": "Delete a publication by its ID",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Publication deleted successfully"
+                    },
+                    "401": {
+                        "description": "Unauthorized - Invalid or missing token"
+                    },
+                    "404": {
+                        "description": "Publication not found"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Publications"
+                ]
+            }
+        },
+        "/v1/postulations": {
+            "get": {
+                "summary": "Get Postulations",
+                "description": "Retrieve a list of postulations",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of postulations",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Postulation"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - Invalid or missing token"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Postulations"
+                ]
+            },
+            "post": {
+                "summary": "Create Postulation",
+                "description": "Create a new postulation",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Postulation"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Postulation created successfully"
+                    },
+                    "400": {
+                        "description": "Validation error"
+                    },
+                    "401": {
+                        "description": "Unauthorized - Invalid or missing token"
+                    },
+                    "409": {
+                        "description": "Duplicate postulation"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Postulations"
+                ]
+            }
+        },
+        "/v1/postulations/{id}": {
+            "get": {
+                "summary": "Get Postulation by ID",
+                "description": "Retrieve a postulation by its ID",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Postulation details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Postulation"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - Invalid or missing token"
+                    },
+                    "404": {
+                        "description": "Postulation not found"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Postulations"
+                ]
+            },
+            "put": {
+                "summary": "Update Postulation",
+                "description": "Update an existing postulation",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Postulation"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Postulation updated successfully"
+                    },
+                    "400": {
+                        "description": "Validation error"
+                    },
+                    "401": {
+                        "description": "Unauthorized - Invalid or missing token"
+                    },
+                    "404": {
+                        "description": "Postulation not found"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Postulations"
+                ]
+            },
+            "delete": {
+                "summary": "Delete Postulation",
+                "description": "Delete a postulation by its ID",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Postulation deleted successfully"
+                    },
+                    "401": {
+                        "description": "Unauthorized - Invalid or missing token"
+                    },
+                    "404": {
+                        "description": "Postulation not found"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Postulations"
+                ]
+            }
+        },
+        "/departments": {
+            "get": {
+                "summary": "Get Departments",
+                "description": "Retrieve a list of all departments",
+                "responses": {
+                    "200": {
+                        "description": "List of departments",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Departments"
+                ]
+            }
+        },
+        "/departments/{id}": {
+            "get": {
+                "summary": "Get Department by ID",
+                "description": "Retrieve a department by its ID",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Department details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Department not found"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Departments"
+                ]
+            }
+        },
+        "/publications/user": {
+            "get": {
+                "summary": "Get User Publications",
+                "description": "Retrieve publications for a specific user",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of user publications",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Publication"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - User not authorized"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Publications"
+                ]
+            }
+        },
+        "/postulations/user": {
+            "get": {
+                "summary": "Get User Postulations",
+                "description": "Retrieve postulations for a specific user",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of user postulations",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Postulation"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - User not authorized"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Postulations"
+                ]
+            }
+        },
+        "/users/profileTeacher": {
+            "put": {
+                "summary": "Update Teacher Profile",
+                "description": "Update the profile of a teacher",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object"
+                            },
+                            "example": {
+                                "isEffectiveTeacher": true,
+                                "address": "123 Main St",
+                                "graduationDate": "2020-06-15",
+                                "competitionNumber": 12345,
+                                "healthCertificateStatus": true,
+                                "criminalRecordDate": "2023-01-01",
+                                "law19889CertificateDate": "2023-01-01",
+                                "gradeExperience": [
+                                    "1",
+                                    "2",
+                                    "3"
+                                ],
+                                "preferredShifts": [
+                                    "MORNING",
+                                    "AFTERNOON"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Profile updated successfully"
+                    },
+                    "404": {
+                        "description": "User not found"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Users"
+                ]
+            }
+        },
+        "/users/profile": {
+            "put": {
+                "summary": "Update User Profile",
+                "description": "Update the profile of a user",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object"
+                            },
+                            "example": {
+                                "name": "John",
+                                "lastName": "Doe",
+                                "ci": "12345678",
+                                "email": "john.doe@example.com",
+                                "phoneNumber": "1234567890"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Profile updated successfully"
+                    },
+                    "404": {
+                        "description": "User not found"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Users"
+                ]
+            }
+        },
+        "/ratings/user": {
+            "get": {
+                "summary": "Get Ratings by User",
+                "description": "Retrieve ratings for a specific user",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of ratings",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - User not authorized"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Ratings"
+                ]
+            }
+        },
+        "/ratings/{id}": {
+            "get": {
+                "summary": "Get Rating by ID",
+                "description": "Retrieve a rating by its ID",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Rating details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - User not authorized"
+                    },
+                    "404": {
+                        "description": "Rating not found"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Ratings"
+                ]
+            },
+            "delete": {
+                "summary": "Delete Rating",
+                "description": "Delete a rating by its ID",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Rating deleted successfully"
+                    },
+                    "403": {
+                        "description": "Forbidden - User not authorized"
+                    },
+                    "404": {
+                        "description": "Rating not found"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Ratings"
+                ]
+            }
+        },
+        "/ratings": {
+            "post": {
+                "summary": "Create Rating",
+                "description": "Create a new rating",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object"
+                            },
+                            "example": {
+                                "publicationId": "pub123",
+                                "teacherId": "teacher123",
+                                "score": 8,
+                                "comment": "Excellent work!",
+                                "type": "TEACHER_TO_SCHOOL"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Rating created successfully"
+                    },
+                    "400": {
+                        "description": "Validation error"
+                    },
+                    "409": {
+                        "description": "Duplicate rating"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "tags": [
+                    "Ratings"
+                ]
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Health",
+            "description": "Health check endpoint"
+        },
+        {
+            "name": "Authentication",
+            "description": "User login and registration"
+        },
+        {
+            "name": "Schools",
+            "description": "Operations related to schools"
+        },
+        {
+            "name": "Publications",
+            "description": "Short-term teaching assignments"
+        },
+        {
+            "name": "Postulations",
+            "description": "Teachers applying to publications"
+        },
+        {
+            "name": "Departments",
+            "description": "Department information"
+        },
+        {
+            "name": "Ratings",
+            "description": "Teacher ratings"
+        },
+        {
+            "name": "Users",
+            "description": "User profile operations"
+        }
+    ]
+}
