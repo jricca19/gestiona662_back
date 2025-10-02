@@ -8,7 +8,7 @@ Aplicación backend desarrollada con [Express.js](https://expressjs.com/)
 - [npm](https://www.npmjs.com/) (v6 o superior)
 
 ### Instalación
-1. Clonar el repositorio desde https://github.com/jricca19/gestiona662-backend
+1. Clonar el repositorio desde https://github.com/jricca19/gestiona662_back
 2. npm install
 3. Ejecutar desde terminal la carga de departamentos y ciudades de ./resources/populateDatabase.js:
    node ./resources/populateDatabase.js
