@@ -12,23 +12,16 @@ const createPostulationSchema = Joi.object({
         'string.empty': 'El ID de la publicación es obligatorio',
         'any.required': 'El ID de la publicación es obligatorio'
     }),
-    createdAt: Joi.date().required().messages({
-        'date.base': 'La fecha de creación debe ser válida',
-        'any.required': 'La fecha de creación es obligatoria'
-    }),
-    appliesToAllDays: Joi.boolean().required().messages({
-        'boolean.base': 'El campo appliesToAllDays debe ser booleano',
-        'any.required': 'El campo appliesToAllDays es obligatorio'
-    }),
-    postulationDays: Joi.when('appliesToAllDays', {
-        is: false,
-        then: Joi.array().items(postulationDaySchema).min(1).required()
-            .messages({
-                'array.base': 'postulationDays debe ser un arreglo de fechas',
-                'array.min': 'Debe proporcionar al menos un día si no aplica a todos',
-                'any.required': 'Debe proporcionar los días de postulación si no aplica a todos'
-            }),
-        otherwise: Joi.forbidden()
+    postulationDays: Joi.array()
+        .items(postulationDaySchema)
+        .min(1)
+        .unique((a, b) => new Date(a.date).toISOString() === new Date(b.date).toISOString())
+        .required()
+        .messages({
+        'array.base': 'postulationDays debe ser un arreglo de fechas',
+        'array.min': 'Debe proporcionar al menos un día de postulación',
+        'array.unique': 'Las fechas de postulación no deben repetirse',
+        'any.required': 'Debe enviar al menos un día de postulación'
     })
 });
 
@@ -44,12 +37,6 @@ const updatePostulationSchema = Joi.object({
     status: Joi.string().valid("PENDING", "ACCEPTED", "REJECTED", "WITHDRAWN").messages({
         'any.only': 'El estado debe ser uno de: PENDING, ACCEPTED, REJECTED o WITHDRAWN',
         'string.base': 'El estado debe ser una cadena de texto'
-    }),
-    appliesToAllDays: Joi.boolean().messages({
-        'boolean.base': 'El campo appliesToAllDays debe ser booleano'
-    }),
-    createdAt: Joi.date().messages({
-        'date.base': 'La fecha de creación debe ser válida'
     })
 }).min(1).messages({
     'object.min': 'Debe proporcionar al menos un campo para actualizar'

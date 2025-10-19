@@ -60,10 +60,11 @@ const getPostulationsOfPublicationController = async (req, res, next) => {
 
 const postPostulationController = async (req, res, next) => {
     try {
-        const { publicationId, createdAt, appliesToAllDays, postulationDays } = req.body;
+        const { publicationId } = req.body;
+        const incomingPostulationDays = req.body.postulationDays || [];
         const { _id } = req.user;
 
-        if (!publicationId) {
+        if (!publicationId || incomingPostulationDays.length === 0) {
             return res.status(400).json({ error: "No ha ingresado todos los datos requeridos." });
         }
         const publication = await findPublication(publicationId);
@@ -76,25 +77,32 @@ const postPostulationController = async (req, res, next) => {
             return res.status(409).json({ error: "Ya existe una postulación registrada de ese maestro para esa publicación." });
         }
 
-        let finalPostulationDays = [];
+        const toISODate = (d) => new Date(d).toISOString().split('T')[0];
 
-        if (appliesToAllDays || !postulationDays || postulationDays.length === 0) {
-            // Assign all publication days if appliesToAllDays is true or postulationDays is empty
-            finalPostulationDays = publication.publicationDays.map(day => ({ date: day.date }));
-        } else {
-            const fechasValidas = publication.publicationDays.map(day => new Date(day.date).toISOString().split('T')[0]);
+        const availableDays = (publication.publicationDays || [])
+            .filter(d => d.status === "AVAILABLE")
+            .map(d => toISODate(d.date));
 
-            for (const pd of postulationDays) {
-                const fechaPostulacion = new Date(pd.date).toISOString().split('T')[0];
-                if (!fechasValidas.includes(fechaPostulacion)) {
-                    return res.status(400).json({ error: `La fecha ${fechaPostulacion} no es válida para esta publicación.` });
-                }
-            }
-
-            finalPostulationDays = postulationDays;
+        if (availableDays.length === 0) {
+            return res.status(400).json({ error: "La publicación no tiene días disponibles para postularse." });
         }
 
-        await createPostulation(_id, publicationId, createdAt, appliesToAllDays, finalPostulationDays);
+        let finalPostulationDays = incomingPostulationDays.map(pd => ({ date: toISODate(pd.date) })) || [];
+
+        const uniqueDates = new Set(finalPostulationDays.map(d => d.date));
+        if (uniqueDates.size !== finalPostulationDays.length) {
+            return res.status(400).json({ error: "No se permiten fechas duplicadas en la postulación." });
+        }
+
+        for (const pd of finalPostulationDays) {
+            if (!availableDays.includes(pd.date)) {
+                return res.status(400).json({ error: `La fecha ${pd.date} no es válida o no está disponible para esta publicación.` });
+            }
+        }
+
+        const appliesToAllDays = finalPostulationDays.length === publication.publicationDays.length;
+
+        await createPostulation(_id, publicationId, appliesToAllDays, finalPostulationDays);
         return res.status(201).json({ message: "Postulación creada correctamente" });
 
     } catch (error) {
