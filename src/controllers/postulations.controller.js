@@ -9,6 +9,7 @@ const {
     getPostulationsByPublicationId,
 } = require("../repositories/postulation.repository");
 const { findPublication } = require("../repositories/publication.repository");
+const { toOnlyDate } = require("../utils/dates");
 
 const getPostulationsController = async (req, res, next) => {
     try {
@@ -77,17 +78,15 @@ const postPostulationController = async (req, res, next) => {
             return res.status(409).json({ error: "Ya existe una postulación registrada de ese maestro para esa publicación." });
         }
 
-        const toISODate = (d) => new Date(d).toISOString().split('T')[0];
-
         const availableDays = (publication.publicationDays || [])
             .filter(d => d.status === "AVAILABLE")
-            .map(d => toISODate(d.date));
+            .map(d => toOnlyDate(d.date));
 
         if (availableDays.length === 0) {
             return res.status(400).json({ error: "La publicación no tiene días disponibles para postularse." });
         }
 
-        let finalPostulationDays = incomingPostulationDays.map(pd => ({ date: toISODate(pd.date) })) || [];
+        let finalPostulationDays = incomingPostulationDays.map(pd => ({ date: toOnlyDate(pd.date) })) || [];
 
         const uniqueDates = new Set(finalPostulationDays.map(d => d.date));
         if (uniqueDates.size !== finalPostulationDays.length) {
@@ -113,6 +112,13 @@ const postPostulationController = async (req, res, next) => {
 const deletePostulationController = async (req, res, next) => {
     try {
         const postulationId = req.params.id;
+        const postulation = await findPostulation(postulationId);
+        if (!postulation) {
+            return res.status(404).json({ message: `No se ha encontrado la postulación con id: ${postulationId}` });
+        }
+        if (postulation.status !== "PENDING") {
+            return res.status(400).json({ message: "Solo se pueden eliminar postulaciones con estado pendiente." });
+        }
         await deletePostulation(postulationId);
         return res.status(200).json({ message: "Postulación eliminada correctamente" })
     } catch (error) {

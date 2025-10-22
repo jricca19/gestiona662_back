@@ -1,3 +1,4 @@
+const { toOnlyDate } = require("../../utils/dates");
 const Joi = require("joi");
 
 const postulationDaySchema = Joi.object({
@@ -15,7 +16,7 @@ const createPostulationSchema = Joi.object({
     postulationDays: Joi.array()
         .items(postulationDaySchema)
         .min(1)
-        .unique((a, b) => new Date(a.date).toISOString() === new Date(b.date).toISOString())
+        .unique((a, b) => toOnlyDate(a.date) === toOnlyDate(b.date))
         .required()
         .messages({
         'array.base': 'postulationDays debe ser un arreglo de fechas',
