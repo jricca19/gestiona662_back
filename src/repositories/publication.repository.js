@@ -69,18 +69,22 @@ const getPublicationsBySchoolId = async (schoolId) => {
     }).select();
 };
 
-const createPublication = async (schoolId, grade, startDate, endDate, shift) => {
+const createPublication = async (schoolId, grade, startDate, endDate, shift, isType662 = false, publicationDaysArg) => {
     if (!mongoose.Types.ObjectId.isValid(schoolId)) {
         throw new Error(`Escuela con ID ${schoolId} inválido`);
     }
 
-    const publicationDays = await generatePublicationDays(startDate, endDate);
+    const publicationDays = Array.isArray(publicationDaysArg)
+        ? publicationDaysArg
+        : await generatePublicationDays(startDate, endDate);
+
     const newPublication = new Publication({
         schoolId,
         grade,
         startDate,
         endDate,
         shift,
+        isType662,
         status: "OPEN",
         publicationDays
     });
@@ -91,13 +95,10 @@ const createPublication = async (schoolId, grade, startDate, endDate, shift) => 
 };
 
 const generatePublicationDays = async (startDate, endDate) => {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
     const days = [];
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    for (let d = new Date(startDate); d <= new Date(endDate); d.setDate(d.getDate() + 1)) {
         const day = new Date(d);
-
-        const weekday = day.getDay();
+        const weekday = day.getDay(); // 0=Dom, 1=Lun, ..., 6=Sáb
         if (weekday >= 1 && weekday <= 5) {
             days.push({
                 date: new Date(day),
@@ -113,7 +114,7 @@ const findPublication = async (id) => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
         throw new Error(`No existe ID: ${id}`);
     }
-    return await Publication.findById(id).select("_id schoolId grade startDate endDate shift status publicationDays");
+    return await Publication.findById(id).select("_id schoolId grade startDate endDate shift status publicationDays isType662");
 };
 
 const findDuplicatePublication = async (schoolId, grade, shift, startDate, endDate) => {
@@ -122,8 +123,8 @@ const findDuplicatePublication = async (schoolId, grade, shift, startDate, endDa
         grade: grade,
         shift: shift,
         status: { $in: ["OPEN", "FILLED"] },
-        startDate: { $lte: new Date(endDate) },
-        endDate: { $gte: new Date(startDate) }
+        startDate: { $lte: endDate },
+        endDate: { $gte: startDate }
     }).select("_id");
 };
 
@@ -158,6 +159,17 @@ const updatePublication = async (id, payload) => {
         Object.entries(payload).forEach(([key, value]) => {
             publication[key] = value;
         });
+
+        const datesChanged = ("startDate" in payload) || ("endDate" in payload);
+        const hasPrecomputedDays = Array.isArray(payload.publicationDays);
+
+        // Solo regenerar si cambiaron fechas y NO vinieron días preconstruidos
+        if (datesChanged && !hasPrecomputedDays) {
+            const start = publication.startDate;
+            const end = publication.endDate;
+            publication.publicationDays = await generatePublicationDays(start, end);
+        }
+
         await publication.save();
     }
     const redisClient = connectToRedis();

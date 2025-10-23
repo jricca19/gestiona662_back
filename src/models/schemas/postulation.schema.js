@@ -9,7 +9,7 @@ const postulationSchema = new mongoose.Schema({
     publicationId: { type: mongoose.Schema.Types.ObjectId, ref: "Publication", required: true, },
     status: { type: String, enum: ["PENDING", "ACCEPTED", "REJECTED", "CANCELED"], default: "PENDING" },
     appliesToAllDays: { type: Boolean, default: true },
-    postulationDays: [postulationDaySchema] // use date instead of ObjectId
+    postulationDays: [postulationDaySchema]
 }, { timestamps: true });
 
 module.exports = postulationSchema;

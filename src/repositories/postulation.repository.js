@@ -37,7 +37,7 @@ const getPostulationsByPublicationId = async (publicationId) => {
         .select();
 };
 
-const createPostulation = async (teacherId, publicationId, createdAt, appliesToAllDays, postulationDays) => {
+const createPostulation = async (teacherId, publicationId, appliesToAllDays, postulationDays) => {
     if (!mongoose.Types.ObjectId.isValid(teacherId)) {
         throw new Error(`Maestro con ID ${teacherId} inválido`);
     }
@@ -45,7 +45,7 @@ const createPostulation = async (teacherId, publicationId, createdAt, appliesToA
         throw new Error(`Publicación con ID ${publicationId} inválido`);
     }
     const newPostulation = new Postulation({
-        teacherId, publicationId, createdAt, appliesToAllDays, postulationDays
+        teacherId, publicationId, appliesToAllDays, postulationDays
     });
     await newPostulation.save();
     return newPostulation;
