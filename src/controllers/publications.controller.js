@@ -10,7 +10,7 @@ const {
 const { deletePostulationsByPublicationId } = require("../repositories/postulation.repository");
 const { findSchoolById } = require("../repositories/school.repository");
 const { findPostulation } = require("../repositories/postulation.repository");
-const { toOnlyDate } = require("../utils/dates");
+const { toOnlyDate, toLocalDate } = require("../utils/dates");
 
 const getPublicationsController = async (req, res, next) => {
     try {
@@ -78,12 +78,10 @@ const getSchoolPublicationsController = async (req, res, next) => {
 };
 
 const generatePublicationDays = (startDate, endDate) => {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
     const days = [];
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    for (let d = startDate; d <= endDate; d.setDate(d.getDate() + 1)) {
         const weekday = d.getDay();
-        if (weekday >= 0 && weekday <= 4) {
+        if (weekday >= 1 && weekday <= 5) {
             days.push({
                 date: new Date(d),
                 assignedTeacherId: null,
@@ -99,8 +97,8 @@ const postPublicationController = async (req, res, next) => {
         const { schoolId, grade, startDate, endDate, shift, isType662 = false } = req.body;
         const { _id } = req.user;
 
-        const start = new Date(startDate);
-        const end = new Date(endDate);
+        const start = toLocalDate(startDate);
+        const end = toLocalDate(endDate);
 
         if (end < start) {
             return res.status(400).json({ message: "La fecha de fin debe ser mayor o igual a la fecha de inicio." });
@@ -110,7 +108,7 @@ const postPublicationController = async (req, res, next) => {
             return res.status(400).json({ message: "La fecha de inicio no puede ser anterior a hoy." });
         }
 
-        if (start.getDay() === 5 || start.getDay() === 6 || end.getDay() === 5 || end.getDay() === 6 ) {
+        if ([start.getDay(), end.getDay()].some(d => d === 0 || d === 6)) {
             return res.status(400).json({ message: "La fecha de inicio o fin no puede ser un fin de semana." });
         }
 
@@ -148,7 +146,7 @@ const postPublicationController = async (req, res, next) => {
             return res.status(400).json({ message: "No se pueden crear publicaciones para más de 30 días hábiles en suplencias generales." });
         }
 
-        await createPublication(schoolId, grade, start, end, shift, isType662, publicationDays);
+    await createPublication(schoolId, grade, startDate, endDate, shift, isType662, publicationDays);
         return res.status(201).json({ message: "Publicación creada correctamente", });
     } catch (error) {
         next(error);
@@ -274,8 +272,8 @@ const putPublicationController = async (req, res, next) => {
         }
 
         if (body.startDate && body.endDate) {
-            const start = new Date(body.startDate);
-            const end = new Date(body.endDate);
+            const start = toLocalDate(body.startDate);
+            const end = toLocalDate(body.endDate);
             if (end <= start) {
                 return res.status(400).json({ message: `La fecha de fin debe ser mayor o igual a la fecha de inicio`, });
             }
