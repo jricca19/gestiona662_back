@@ -7,3 +7,8 @@ export function isSameDay(date1, date2) {
            date1.getMonth() === date2.getMonth() &&
            date1.getDate() === date2.getDate();
 }
+
+export function toLocalDate(dateStr) {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+}
