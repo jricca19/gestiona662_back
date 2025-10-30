@@ -12,9 +12,14 @@ const { findSchoolById } = require("../repositories/school.repository");
 const { findPostulation } = require("../repositories/postulation.repository");
 const { dateToString, toLocalDate, todayUtcDate } = require("../utils/dates");
 
+// Debug flag
+const DEBUG_PUBLICATIONS = process.env.DEBUG_PUBLICATIONS === 'true';
+const dbg = (...args) => { if (DEBUG_PUBLICATIONS) console.log(...args); };
+
 const getPublicationsController = async (req, res, next) => {
     try {
         const { page = 1, limit = 10, departmentName, schoolId, startDate } = req.query;
+        dbg('[ctrl.getPublications] query=', req.query);
 
         const pageNumber = parseInt(page);
         const limitNumber = parseInt(limit);
@@ -25,6 +30,7 @@ const getPublicationsController = async (req, res, next) => {
         if (startDate) filters.startDate = startDate;
 
         const publications = await getPublications(filters);
+        dbg('[ctrl.getPublications] count=', publications?.length);
 
         //TODO: usar limit y skip a nivel de base de datos para mejorar el rendimiento
 
@@ -94,39 +100,48 @@ const generatePublicationDays = (startDate, endDate) => {
             });
         }
     }
+    dbg('[ctrl.generatePublicationDays] start=', start.toISOString(), 'end=', end.toISOString(), 'count=', days.length);
     return days;
 };
 
 const postPublicationController = async (req, res, next) => {
     try {
+        dbg('[ctrl.postPublication] raw body=', req.body, 'serverNow=', new Date().toISOString(), 'env.TZ=', process.env.TZ);
         const { schoolId, grade, startDate, endDate, shift, isType662 = false } = req.body;
         const { _id } = req.user;
 
         const start = toLocalDate(startDate);
         const end = toLocalDate(endDate);
+        dbg('[ctrl.postPublication] parsed start=', start.toISOString(), 'end=', end.toISOString(), 'start(UTCday)=', start.getUTCDay(), 'end(UTCday)=', end.getUTCDay(), 'start(localDay)=', start.getDay(), 'end(localDay)=', end.getDay());
 
         if (end < start) {
+            dbg('[ctrl.postPublication][reject] end < start');
             return res.status(400).json({ message: "La fecha de fin debe ser mayor o igual a la fecha de inicio." });
         }
 
         // "Hoy" en UTC
         const hoy = todayUtcDate();
+        dbg('[ctrl.postPublication] todayUtc=', hoy.toISOString(), 'compare start=', dateToString(start), '<', dateToString(hoy), '=', dateToString(start) < dateToString(hoy));
         if (dateToString(start) < dateToString(hoy)) {
+            dbg('[ctrl.postPublication][reject] start < todayUtc');
             return res.status(400).json({ message: "La fecha de inicio no puede ser anterior a hoy." });
         }
 
         // Validación de fines de semana en UTC
         if ([start.getUTCDay(), end.getUTCDay()].some(d => d === 0 || d === 6)) {
+            dbg('[ctrl.postPublication][reject] weekend boundary startUTCDay=', start.getUTCDay(), 'endUTCDay=', end.getUTCDay());
             return res.status(400).json({ message: "La fecha de inicio o fin no puede ser un fin de semana." });
         }
 
         const school = await findSchoolById(schoolId);
         if (!school) {
+            dbg('[ctrl.postPublication][reject] school not found=', schoolId);
             return res.status(404).json({ message: `No se ha encontrado la escuela con id: ${schoolId}`, });
         }
 
         const isUserInSchool = school.staff?.some(staff => staff.userId.toString() === _id.toString());
         if (!isUserInSchool) {
+            dbg('[ctrl.postPublication][reject] user not in school staff userId=', _id);
             return res.status(403).json({ message: "No tiene permiso para crear publicaciones para esta escuela." });
         }
 
@@ -138,25 +153,32 @@ const postPublicationController = async (req, res, next) => {
             end
         );
         if (duplicated) {
+            dbg('[ctrl.postPublication][reject] duplicated=', duplicated?._id?.toString?.());
             return res.status(400).json({ message: "Ya existe una publicación abierta para esa escuela, grado, turno y rango de fechas.", });
         }
 
         const publicationDays = generatePublicationDays(start, end);
         const workingCount = publicationDays.length;
+        dbg('[ctrl.postPublication] working days=', workingCount);
 
         if (workingCount === 0) {
+            dbg('[ctrl.postPublication][reject] no working days');
             return res.status(400).json({ message: "El rango de fechas no contiene días hábiles (lunes a viernes)." });
         }
         if (isType662 && workingCount > 3) {
+            dbg('[ctrl.postPublication][reject] 662 > 3 days');
             return res.status(400).json({ message: "No se pueden crear publicaciones para más de 3 días hábiles en suplencias tipo 662." });
         }
         if (!isType662 && workingCount > 30) {
+            dbg('[ctrl.postPublication][reject] general > 30 days');
             return res.status(400).json({ message: "No se pueden crear publicaciones para más de 30 días hábiles en suplencias generales." });
         }
 
         await createPublication(schoolId, grade, start, end, shift, isType662, publicationDays);
+        dbg('[ctrl.postPublication] created OK');
         return res.status(201).json({ message: "Publicación creada correctamente", });
     } catch (error) {
+        console.error('[ctrl.postPublication][error]', error);
         next(error);
     }
 };
@@ -260,9 +282,12 @@ const putPublicationController = async (req, res, next) => {
         const publicationId = req.params.id;
         const { body } = req;
         const { schoolId, grade, startDate, endDate, shift } = body;
+        dbg('[ctrl.putPublication] id=', publicationId, 'body=', body);
+
         const publication = await findPublication(publicationId);
 
         if (!publication) {
+            dbg('[ctrl.putPublication][reject] not found');
             return res.status(404).json({ message: `No se ha encontrado la publicación con id: ${publicationId}`, });
         }
 
@@ -270,19 +295,23 @@ const putPublicationController = async (req, res, next) => {
             publication.publicationDays?.some(day => day.assignedTeacherId !== null);
 
         if (hasActivePublication) {
+            dbg('[ctrl.putPublication][reject] active with assigned days');
             return res.status(400).json({ message: "No se puede modificar una publicación activa que ya tiene personas asignadas." });
         }
 
         const school = await findSchoolById(publication.schoolId);
         const isUserInSchool = school.staff?.some(staff => staff.userId.toString() === _id.toString());
         if (!isUserInSchool) {
+            dbg('[ctrl.putPublication][reject] user not in school staff');
             return res.status(403).json({ message: "No tiene permiso para modificar esta publicación." });
         }
 
         if (body.startDate && body.endDate) {
             const start = toLocalDate(body.startDate);
             const end = toLocalDate(body.endDate);
+            dbg('[ctrl.putPublication] parsed start=', start.toISOString(), 'end=', end.toISOString());
             if (end <= start) {
+                dbg('[ctrl.putPublication][reject] end <= start');
                 return res.status(400).json({ message: `La fecha de fin debe ser mayor o igual a la fecha de inicio`, });
             }
         }
@@ -290,6 +319,7 @@ const putPublicationController = async (req, res, next) => {
         // Normalizar fechas para la detección de duplicados en UTC
         const dupStart = startDate ? toLocalDate(startDate) : publication.startDate;
         const dupEnd = endDate ? toLocalDate(endDate) : publication.endDate;
+        dbg('[ctrl.putPublication] dup window start=', dupStart?.toISOString?.(), 'end=', dupEnd?.toISOString?.());
 
         const duplicated = await findDuplicatePublication(
             schoolId,
@@ -299,6 +329,7 @@ const putPublicationController = async (req, res, next) => {
             dupEnd
         );
         if (duplicated) {
+            dbg('[ctrl.putPublication][reject] duplicated=', duplicated?._id?.toString?.());
             return res.status(400).json({ message: "Ya existe una publicación abierta para esa escuela, grado, turno y rango de fechas.", });
         }
 
@@ -309,14 +340,18 @@ const putPublicationController = async (req, res, next) => {
 
         const publicationDays = generatePublicationDays(effectiveStart, effectiveEnd);
         const workingCount = publicationDays.length;
+        dbg('[ctrl.putPublication] working days=', workingCount, 'isType662=', effectiveType662);
 
         if (workingCount === 0) {
+            dbg('[ctrl.putPublication][reject] no working days');
             return res.status(400).json({ message: "El rango de fechas no contiene días hábiles (lunes a viernes)." });
         }
         if (effectiveType662 && workingCount > 3) {
+            dbg('[ctrl.putPublication][reject] 662 > 3 days');
             return res.status(400).json({ message: "Para suplencias tipo 662 el rango no puede exceder 3 días hábiles (lunes a viernes)." });
         }
         if (!effectiveType662 && workingCount > 30) {
+            dbg('[ctrl.putPublication][reject] general > 30 days');
             return res.status(400).json({ message: "Para suplencias no 662 el rango no puede exceder 30 días hábiles (lunes a viernes)." });
         }
 
@@ -325,11 +360,14 @@ const putPublicationController = async (req, res, next) => {
             if (body.startDate) body.startDate = toLocalDate(body.startDate);
             if (body.endDate) body.endDate = toLocalDate(body.endDate);
             body.publicationDays = generatePublicationDays(body.startDate || publication.startDate, body.endDate || publication.endDate);
+            dbg('[ctrl.putPublication] attach regenerated days=', body.publicationDays.length);
         }
 
         await updatePublication(publicationId, body);
+        dbg('[ctrl.putPublication] updated OK');
         return res.status(200).json({ message: "Publicación actualizada correctamente", });
     } catch (error) {
+        console.error('[ctrl.putPublication][error]', error);
         next(error);
     }
 };
