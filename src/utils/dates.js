@@ -1,6 +1,4 @@
-// Debug flags
-const DEBUG_DATES = process.env.DEBUG_DATES === 'true';
-const dbg = (...args) => { if (DEBUG_DATES) console.log(...args); };
+const dbg = (...args) => { console.log(...args); };
 
 export function dateToString(d) {
     // Mantener strings "YYYY-MM-DD" tal cual
