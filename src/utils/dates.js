@@ -1,5 +1,10 @@
-export function toOnlyDate (d) {
-    return new Date(d).toISOString().split('T')[0];
+export function dateToString(d) {
+    if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+    const date = new Date(d);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 export function isSameDay(date1, date2) {

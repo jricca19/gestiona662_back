@@ -10,7 +10,7 @@ const {
 const { deletePostulationsByPublicationId } = require("../repositories/postulation.repository");
 const { findSchoolById } = require("../repositories/school.repository");
 const { findPostulation } = require("../repositories/postulation.repository");
-const { toOnlyDate, toLocalDate } = require("../utils/dates");
+const { dateToString, toLocalDate } = require("../utils/dates");
 
 const getPublicationsController = async (req, res, next) => {
     try {
@@ -79,7 +79,7 @@ const getSchoolPublicationsController = async (req, res, next) => {
 
 const generatePublicationDays = (startDate, endDate) => {
     const days = [];
-    for (let d = startDate; d <= endDate; d.setDate(d.getDate() + 1)) {
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
         const weekday = d.getDay();
         if (weekday >= 1 && weekday <= 5) {
             days.push({
@@ -104,7 +104,9 @@ const postPublicationController = async (req, res, next) => {
             return res.status(400).json({ message: "La fecha de fin debe ser mayor o igual a la fecha de inicio." });
         }
 
-        if (toOnlyDate(start) < toOnlyDate(new Date())) {
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        if (dateToString(start) < dateToString(hoy)) {
             return res.status(400).json({ message: "La fecha de inicio no puede ser anterior a hoy." });
         }
 
@@ -146,7 +148,7 @@ const postPublicationController = async (req, res, next) => {
             return res.status(400).json({ message: "No se pueden crear publicaciones para más de 30 días hábiles en suplencias generales." });
         }
 
-    await createPublication(schoolId, grade, startDate, endDate, shift, isType662, publicationDays);
+        await createPublication(schoolId, grade, start, end, shift, isType662, publicationDays);
         return res.status(201).json({ message: "Publicación creada correctamente", });
     } catch (error) {
         next(error);
@@ -213,11 +215,11 @@ const assignPostulationController = async (req, res, next) => {
             const teacherId = postulation.teacherId;
 
             // Convertir a fechas en formato YYYY-MM-DD
-            const selectedDayStrings = selectedDays.map(d => toOnlyDate(d));
+            const selectedDayStrings = selectedDays.map(d => dateToString(d));
 
             // Actualizar días de la publicación
             const updatedDays = publication.publicationDays.map(day => {
-                const pubDayStr = toOnlyDate(day.date);
+                const pubDayStr = dateToString(day.date);
                 if (selectedDayStrings.includes(pubDayStr)) {
                     return {
                         ...day,
@@ -311,7 +313,9 @@ const putPublicationController = async (req, res, next) => {
 
         // Si cambian fechas, adjuntar los días para evitar recalcular en el repositorio
         if (body.startDate || body.endDate) {
-            body.publicationDays = publicationDays;
+            if (body.startDate) body.startDate = toLocalDate(body.startDate);
+            if (body.endDate) body.endDate = toLocalDate(body.endDate);
+            body.publicationDays = generatePublicationDays(body.startDate, body.endDate);
         }
 
         await updatePublication(publicationId, body);
