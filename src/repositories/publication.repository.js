@@ -3,13 +3,8 @@ const Publication = require("../models/publication.model");
 const connectToRedis = require("../services/redis.service");
 const { toLocalDate } = require("../utils/dates"); // usar parseo UTC
 
-// Debug flag
-const DEBUG_PUBLICATIONS = process.env.DEBUG_PUBLICATIONS === 'true';
-const dbg = (...args) => { if (DEBUG_PUBLICATIONS) console.log(...args); };
-
 const getPublications = async (filters = {}) => {
     const hasFilters = filters && Object.keys(filters).length > 0;
-    dbg('[repo.getPublications] filters=', filters, 'hasFilters=', hasFilters);
 
     // if has filters, search directly in the database without cache
     if (hasFilters) {
@@ -26,10 +21,8 @@ const getPublications = async (filters = {}) => {
             // antes: new Date(filters.startDate) -> parseo local
             const start = toLocalDate(filters.startDate); // medianoche UTC
             query.startDate = { $gte: start };
-            dbg('[repo.getPublications] normalized startDate >=', start.toISOString());
         }
 
-        dbg('[repo.getPublications] query=', query);
         let publications = await Publication.find(query)
             .populate({
                 path: "schoolId",
@@ -41,13 +34,10 @@ const getPublications = async (filters = {}) => {
             })
             .select();
 
-        dbg('[repo.getPublications] result count=', publications?.length);
-
         if (filters.departmentName) {
             publications = publications.filter(pub =>
                 pub.schoolId?.departmentId?.name?.toLowerCase().includes(filters.departmentName.toLowerCase())
             );
-            dbg('[repo.getPublications] filtered by departmentName, count=', publications?.length);
         }
         return publications;
     }
@@ -56,7 +46,6 @@ const getPublications = async (filters = {}) => {
     const redisClient = connectToRedis();
     let publications = await redisClient.get("publications");
     if (!publications) {
-        dbg('[repo.getPublications] cache miss');
         publications = await Publication.find({ status: "OPEN" })
             .populate({
                 path: "schoolId",
@@ -68,9 +57,6 @@ const getPublications = async (filters = {}) => {
             })
             .select();
         await redisClient.set("publications", JSON.stringify(publications));
-        dbg('[repo.getPublications] cached publications count=', publications?.length);
-    } else {
-        dbg('[repo.getPublications] cache hit');
     }
     return publications;
 };
@@ -90,12 +76,6 @@ const createPublication = async (schoolId, grade, startDate, endDate, shift, isT
     if (!mongoose.Types.ObjectId.isValid(schoolId)) {
         throw new Error(`Escuela con ID ${schoolId} inválido`);
     }
-    dbg('[repo.createPublication] payload=', {
-        schoolId, grade, shift, isType662,
-        startISO: new Date(startDate).toISOString?.(),
-        endISO: new Date(endDate).toISOString?.(),
-        daysProvided: Array.isArray(publicationDaysArg) ? publicationDaysArg.length : 'no'
-    });
 
     const publicationDays = Array.isArray(publicationDaysArg)
         ? publicationDaysArg
@@ -114,7 +94,6 @@ const createPublication = async (schoolId, grade, startDate, endDate, shift, isT
     const redisClient = connectToRedis();
     await redisClient.del("publications");
     await newPublication.save();
-    dbg('[repo.createPublication] created _id=', newPublication._id?.toString(), 'days=', publicationDays.length);
     return newPublication;
 };
 
@@ -134,7 +113,6 @@ const generatePublicationDays = async (startDate, endDate) => {
             });
         }
     }
-    dbg('[repo.generatePublicationDays] start=', start.toISOString(), 'end=', end.toISOString(), 'count=', days.length, 'first=', days[0]?.date?.toISOString(), 'last=', days[days.length-1]?.date?.toISOString());
     return days;
 };
 
@@ -146,12 +124,7 @@ const findPublication = async (id) => {
 };
 
 const findDuplicatePublication = async (schoolId, grade, shift, startDate, endDate) => {
-    dbg('[repo.findDuplicatePublication] window=', {
-        schoolId, grade, shift,
-        startISO: new Date(startDate).toISOString?.(),
-        endISO: new Date(endDate).toISOString?.()
-    });
-    const dup = await Publication.findOne({
+    return await Publication.findOne({
         schoolId: schoolId,
         grade: grade,
         shift: shift,
@@ -159,8 +132,6 @@ const findDuplicatePublication = async (schoolId, grade, shift, startDate, endDa
         startDate: { $lte: endDate },
         endDate: { $gte: startDate }
     }).select("_id");
-    dbg('[repo.findDuplicatePublication] found=', !!dup, 'id=', dup?._id?.toString?.());
-    return dup;
 };
 
 const deletePublication = async (id) => {
@@ -188,7 +159,6 @@ const updatePublication = async (id, payload) => {
     if (payload.schoolId && !mongoose.Types.ObjectId.isValid(payload.schoolId)) {
         throw new Error(`Escuela con ID ${payload.schoolId} inválido`);
     }
-    dbg('[repo.updatePublication] id=', id, 'keys=', Object.keys(payload || {}));
     const publication = await Publication.findOne({ _id: id });
 
     if (publication) {
@@ -207,7 +177,6 @@ const updatePublication = async (id, payload) => {
         }
 
         await publication.save();
-        dbg('[repo.updatePublication] saved id=', id, 'datesChanged=', datesChanged, 'days=', publication.publicationDays?.length);
     }
     const redisClient = connectToRedis();
     await redisClient.del("publications");
