@@ -98,7 +98,7 @@ const generatePublicationDays = async (startDate, endDate) => {
     const days = [];
     for (let d = new Date(startDate); d <= new Date(endDate); d.setDate(d.getDate() + 1)) {
         const day = new Date(d);
-        const weekday = day.getDay(); // 0=Dom, 1=Lun, ..., 6=Sáb
+        const weekday = day.getDay();
         if (weekday >= 1 && weekday <= 5) {
             days.push({
                 date: new Date(day),

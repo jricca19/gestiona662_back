@@ -9,7 +9,7 @@ const {
     getPostulationsByPublicationId,
 } = require("../repositories/postulation.repository");
 const { findPublication } = require("../repositories/publication.repository");
-const { toOnlyDate } = require("../utils/dates");
+const { dateToString } = require("../utils/dates");
 
 const getPostulationsController = async (req, res, next) => {
     try {
@@ -80,13 +80,13 @@ const postPostulationController = async (req, res, next) => {
 
         const availableDays = (publication.publicationDays || [])
             .filter(d => d.status === "AVAILABLE")
-            .map(d => toOnlyDate(d.date));
+            .map(d => dateToString(d.date));
 
         if (availableDays.length === 0) {
             return res.status(400).json({ error: "La publicación no tiene días disponibles para postularse." });
         }
 
-        let finalPostulationDays = incomingPostulationDays.map(pd => ({ date: toOnlyDate(pd.date) })) || [];
+        let finalPostulationDays = incomingPostulationDays.map(pd => ({ date: dateToString(pd.date) })) || [];
 
         const uniqueDates = new Set(finalPostulationDays.map(d => d.date));
         if (uniqueDates.size !== finalPostulationDays.length) {
