@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const Publication = require("../models/publication.model");
 const connectToRedis = require("../services/redis.service");
+const { toLocalDate } = require("../utils/dates"); // usar parseo UTC
 
 const getPublications = async (filters = {}) => {
     const hasFilters = filters && Object.keys(filters).length > 0;
@@ -17,7 +18,9 @@ const getPublications = async (filters = {}) => {
         }
 
         if (filters.startDate) {
-            query.startDate = { $gte: new Date(filters.startDate) };
+            // antes: new Date(filters.startDate) -> parseo local
+            const start = toLocalDate(filters.startDate); // medianoche UTC
+            query.startDate = { $gte: start };
         }
 
         let publications = await Publication.find(query)
@@ -94,14 +97,17 @@ const createPublication = async (schoolId, grade, startDate, endDate, shift, isT
     return newPublication;
 };
 
+// Regeneración de días en UTC
 const generatePublicationDays = async (startDate, endDate) => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
     const days = [];
-    for (let d = new Date(startDate); d <= new Date(endDate); d.setDate(d.getDate() + 1)) {
-        const day = new Date(d);
-        const weekday = day.getDay();
+    const d = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+    for (; d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+        const weekday = d.getUTCDay();
         if (weekday >= 1 && weekday <= 5) {
             days.push({
-                date: new Date(day),
+                date: new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())),
                 assignedTeacherId: null,
                 status: "AVAILABLE"
             });
