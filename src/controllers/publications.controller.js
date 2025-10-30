@@ -10,7 +10,7 @@ const {
 const { deletePostulationsByPublicationId } = require("../repositories/postulation.repository");
 const { findSchoolById } = require("../repositories/school.repository");
 const { findPostulation } = require("../repositories/postulation.repository");
-const { dateToString, toLocalDate } = require("../utils/dates");
+const { dateToString, toLocalDate, todayUtcDate } = require("../utils/dates");
 
 const getPublicationsController = async (req, res, next) => {
     try {
@@ -77,13 +77,18 @@ const getSchoolPublicationsController = async (req, res, next) => {
     }
 };
 
+// Generar días en UTC (evita desfasajes por zona horaria)
 const generatePublicationDays = (startDate, endDate) => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
     const days = [];
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-        const weekday = d.getDay();
+    // Asegurar inicio en medianoche UTC
+    const d = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+    for (; d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+        const weekday = d.getUTCDay();
         if (weekday >= 1 && weekday <= 5) {
             days.push({
-                date: new Date(d),
+                date: new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())),
                 assignedTeacherId: null,
                 status: "AVAILABLE"
             });
@@ -104,13 +109,14 @@ const postPublicationController = async (req, res, next) => {
             return res.status(400).json({ message: "La fecha de fin debe ser mayor o igual a la fecha de inicio." });
         }
 
-        const hoy = new Date();
-        hoy.setHours(0, 0, 0, 0);
+        // "Hoy" en UTC
+        const hoy = todayUtcDate();
         if (dateToString(start) < dateToString(hoy)) {
             return res.status(400).json({ message: "La fecha de inicio no puede ser anterior a hoy." });
         }
 
-        if ([start.getDay(), end.getDay()].some(d => d === 0 || d === 6)) {
+        // Validación de fines de semana en UTC
+        if ([start.getUTCDay(), end.getUTCDay()].some(d => d === 0 || d === 6)) {
             return res.status(400).json({ message: "La fecha de inicio o fin no puede ser un fin de semana." });
         }
 
@@ -281,23 +287,26 @@ const putPublicationController = async (req, res, next) => {
             }
         }
 
+        // Normalizar fechas para la detección de duplicados en UTC
+        const dupStart = startDate ? toLocalDate(startDate) : publication.startDate;
+        const dupEnd = endDate ? toLocalDate(endDate) : publication.endDate;
+
         const duplicated = await findDuplicatePublication(
             schoolId,
             grade,
             shift,
-            startDate,
-            endDate
+            dupStart,
+            dupEnd
         );
         if (duplicated) {
             return res.status(400).json({ message: "Ya existe una publicación abierta para esa escuela, grado, turno y rango de fechas.", });
         }
 
-        // Validaciones de límites con valores efectivos (si no vienen en body, usar existentes)
-        const effectiveStart = body.startDate || publication.startDate;
-        const effectiveEnd = body.endDate || publication.endDate;
+        // Validaciones de límites con valores efectivos
+        const effectiveStart = dupStart;
+        const effectiveEnd = dupEnd;
         const effectiveType662 = (typeof body.isType662 === "boolean") ? body.isType662 : !!publication.isType662;
 
-        // Construir días una sola vez y reutilizar
         const publicationDays = generatePublicationDays(effectiveStart, effectiveEnd);
         const workingCount = publicationDays.length;
 
@@ -311,11 +320,11 @@ const putPublicationController = async (req, res, next) => {
             return res.status(400).json({ message: "Para suplencias no 662 el rango no puede exceder 30 días hábiles (lunes a viernes)." });
         }
 
-        // Si cambian fechas, adjuntar los días para evitar recalcular en el repositorio
+        // Si cambian fechas, adjuntar los días (normalizados a UTC)
         if (body.startDate || body.endDate) {
             if (body.startDate) body.startDate = toLocalDate(body.startDate);
             if (body.endDate) body.endDate = toLocalDate(body.endDate);
-            body.publicationDays = generatePublicationDays(body.startDate, body.endDate);
+            body.publicationDays = generatePublicationDays(body.startDate || publication.startDate, body.endDate || publication.endDate);
         }
 
         await updatePublication(publicationId, body);
