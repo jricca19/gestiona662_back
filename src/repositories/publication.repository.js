@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const Publication = require("../models/publication.model");
 const connectToRedis = require("../services/redis.service");
-const { toLocalDate } = require("../utils/dates"); // usar parseo UTC
+const { dateStringToUTC } = require("../utils/dates");
 
 const getPublications = async (filters = {}) => {
     const hasFilters = filters && Object.keys(filters).length > 0;
@@ -18,8 +18,7 @@ const getPublications = async (filters = {}) => {
         }
 
         if (filters.startDate) {
-            // antes: new Date(filters.startDate) -> parseo local
-            const start = toLocalDate(filters.startDate); // medianoche UTC
+            const start = dateStringToUTC(filters.startDate);
             query.startDate = { $gte: start };
         }
 
@@ -72,21 +71,17 @@ const getPublicationsBySchoolId = async (schoolId) => {
     }).select();
 };
 
-const createPublication = async (schoolId, grade, startDate, endDate, shift, isType662 = false, publicationDaysArg) => {
+const createPublication = async (schoolId, grade, startDate, endDate, shift, isType662 = false, publicationDays, details) => {
     if (!mongoose.Types.ObjectId.isValid(schoolId)) {
         throw new Error(`Escuela con ID ${schoolId} inválido`);
     }
-
-    const publicationDays = Array.isArray(publicationDaysArg)
-        ? publicationDaysArg
-        : await generatePublicationDays(startDate, endDate);
-
     const newPublication = new Publication({
         schoolId,
         grade,
         startDate,
         endDate,
         shift,
+        details,
         isType662,
         status: "OPEN",
         publicationDays
@@ -95,25 +90,6 @@ const createPublication = async (schoolId, grade, startDate, endDate, shift, isT
     await redisClient.del("publications");
     await newPublication.save();
     return newPublication;
-};
-
-// Regeneración de días en UTC
-const generatePublicationDays = async (startDate, endDate) => {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const days = [];
-    const d = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
-    for (; d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
-        const weekday = d.getUTCDay();
-        if (weekday >= 1 && weekday <= 5) {
-            days.push({
-                date: new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())),
-                assignedTeacherId: null,
-                status: "AVAILABLE"
-            });
-        }
-    }
-    return days;
 };
 
 const findPublication = async (id) => {
@@ -165,16 +141,6 @@ const updatePublication = async (id, payload) => {
         Object.entries(payload).forEach(([key, value]) => {
             publication[key] = value;
         });
-
-        const datesChanged = ("startDate" in payload) || ("endDate" in payload);
-        const hasPrecomputedDays = Array.isArray(payload.publicationDays);
-
-        // Solo regenerar si cambiaron fechas y NO vinieron días preconstruidos
-        if (datesChanged && !hasPrecomputedDays) {
-            const start = publication.startDate;
-            const end = publication.endDate;
-            publication.publicationDays = await generatePublicationDays(start, end);
-        }
 
         await publication.save();
     }
