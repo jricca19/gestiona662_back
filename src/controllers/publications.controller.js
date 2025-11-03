@@ -58,7 +58,7 @@ const getPublicationController = async (req, res, next) => {
 const getSchoolPublicationsController = async (req, res, next) => {
     try {
         const { _id } = req.user;
-        const { schoolId } = req.body;
+        const schoolId = req.params.id;
 
         const school = await findSchoolById(schoolId);
         if (!school) {

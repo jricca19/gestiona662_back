@@ -39,7 +39,7 @@ const {
 const { putTeacherProfile, putUserProfile, getUserProfile } = require("../controllers/user.controller");
 
 const payloadMiddleWare = require("../middlewares/payload.middleware");
-const { createPublicationSchema, updatePublicationSchema, getUserPublicationsSchema } = require("./validations/publication.validation");
+const { createPublicationSchema, updatePublicationSchema } = require("./validations/publication.validation");
 const { createPostulationSchema, updatePostulationSchema } = require("./validations/postulation.validation");
 const { updateUserValidationSchema, updateTeacherValidationSchema } = require("./validations/user.validation");
 const { ratingValidationSchema, ratingsValidationSchema } = require("./validations/rating.validation");
@@ -47,7 +47,7 @@ const roleMiddleware = require("../middlewares/role.middleware");
 const { schoolValidationSchema, updateSchoolValidationSchema } = require("./validations/school.validation");
 //
 privateRouter.get("/publications", roleMiddleware("TEACHER"), getPublicationsController);
-privateRouter.post("/publications/school", roleMiddleware("STAFF"), payloadMiddleWare(getUserPublicationsSchema), getSchoolPublicationsController);
+privateRouter.get("/publications/school/:id", roleMiddleware("STAFF"), getSchoolPublicationsController);
 privateRouter.get("/publications/:id", getPublicationController);
 privateRouter.post("/publications", roleMiddleware("STAFF"), payloadMiddleWare(createPublicationSchema), postPublicationController);
 privateRouter.delete("/publications/:id", roleMiddleware("STAFF"), deletePublicationController);

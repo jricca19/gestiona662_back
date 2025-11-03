@@ -73,15 +73,7 @@ const updatePublicationSchema = Joi.object({
     "object.min": "Debe proporcionar al menos un campo para actualizar."
 });
 
-const getUserPublicationsSchema = Joi.object({
-    schoolId: Joi.string().required().messages({
-        "string.base": "El ID de la escuela debe ser una cadena de texto.",
-        "any.required": "El ID de la escuela es obligatorio."
-    })
-});
-
 module.exports = {
     createPublicationSchema,
-    updatePublicationSchema,
-    getUserPublicationsSchema,
+    updatePublicationSchema
 };
