@@ -61,14 +61,25 @@ const getPublications = async (filters = {}) => {
 };
 
 const getPublicationsBySchoolId = async (schoolId) => {
-    return await Publication.find({ schoolId }).populate({
-        path: "schoolId",
-        select: "schoolId schoolNumber departmentId cityName address",
-        populate: {
-            path: "departmentId",
-            select: "name",
-        }
-    }).select();
+    return await Publication.find({ schoolId })
+        .select("_id schoolId grade startDate endDate shift status isType662 publicationDays")
+        .populate({
+            path: "schoolId",
+            select: "schoolId schoolNumber departmentId cityName address",
+            populate: {
+                path: "departmentId",
+                select: "name",
+            }
+        })
+        .populate({
+            path: "postulations",
+            select: "teacherId status appliesToAllDays postulationDays createdAt",
+            populate: {
+                path: "teacherId",
+                select: "name lastName ci email phoneNumber role profilePhoto teacherProfile",
+            }
+        })
+        .lean();
 };
 
 const createPublication = async (schoolId, grade, startDate, endDate, shift, isType662 = false, publicationDays, details) => {
@@ -88,6 +99,7 @@ const createPublication = async (schoolId, grade, startDate, endDate, shift, isT
     });
     const redisClient = connectToRedis();
     await redisClient.del("publications");
+    await redisClient.del(`publications:school:${schoolId}`);
     await newPublication.save();
     return newPublication;
 };
@@ -115,7 +127,11 @@ const deletePublication = async (id) => {
         throw new Error(`No existe ID: ${id}`);
     }
     const redisClient = connectToRedis();
+    const pub = await Publication.findById(id).select("schoolId").lean();
     await redisClient.del("publications");
+    if (pub?.schoolId) {
+        await redisClient.del(`publications:school:${pub.schoolId.toString()}`);
+    }
     return await Publication.deleteOne({ _id: id });
 };
 
@@ -138,12 +154,19 @@ const updatePublication = async (id, payload) => {
     const publication = await Publication.findOne({ _id: id });
 
     if (publication) {
+        const oldSchoolId = publication.schoolId?.toString();
         Object.entries(payload).forEach(([key, value]) => {
             publication[key] = value;
         });
-
         await publication.save();
+
+        const redisClient = connectToRedis();
+        await redisClient.del("publications");
+        await redisClient.del(`publications:school:${oldSchoolId}`);
+        await redisClient.del(`publications:school:${publication.schoolId?.toString()}`);
+        return publication;
     }
+
     const redisClient = connectToRedis();
     await redisClient.del("publications");
     return publication;

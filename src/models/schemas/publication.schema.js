@@ -18,4 +18,13 @@ const publicationSchema = new mongoose.Schema({
   publicationDays: [publicationDaySchema]
 }, { timestamps: true });
 
+publicationSchema.virtual("postulations", {
+  ref: "Postulation",
+  localField: "_id",
+  foreignField: "publicationId",
+  justOne: false,
+});
+publicationSchema.set("toJSON", { virtuals: true });
+publicationSchema.set("toObject", { virtuals: true });
+
 module.exports = publicationSchema;

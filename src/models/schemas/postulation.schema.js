@@ -12,4 +12,8 @@ const postulationSchema = new mongoose.Schema({
     postulationDays: [postulationDaySchema]
 }, { timestamps: true });
 
+postulationSchema.index({ publicationId: 1 });
+postulationSchema.index({ teacherId: 1 });
+postulationSchema.index({ teacherId: 1, publicationId: 1 }, { unique: true });
+
 module.exports = postulationSchema;

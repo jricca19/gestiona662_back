@@ -55,7 +55,7 @@ const getPublicationController = async (req, res, next) => {
     }
 };
 
-const getSchoolPublicationsController = async (req, res, next) => {
+const getPublicationsOfSchoolController = async (req, res, next) => {
     try {
         const { _id } = req.user;
         const schoolId = req.params.id;
@@ -188,7 +188,6 @@ const deletePublicationController = async (req, res, next) => {
 
 const assignPostulationController = async (req, res, next) => {
     try {
-        console.log("📩 Body recibido:", JSON.stringify(req.body, null, 2));
         const asignaciones = req.body.asignaciones;
 
         if (!Array.isArray(asignaciones) || asignaciones.length === 0) {
@@ -324,7 +323,7 @@ const putPublicationController = async (req, res, next) => {
 module.exports = {
     getPublicationsController,
     getPublicationController,
-    getSchoolPublicationsController,
+    getPublicationsOfSchoolController,
     assignPostulationController,
     postPublicationController,
     putPublicationController,
