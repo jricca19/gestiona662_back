@@ -182,15 +182,6 @@
                         "type": "string",
                         "example": "pub123"
                     },
-                    "createdAt": {
-                        "type": "string",
-                        "format": "date",
-                        "example": "2023-01-01"
-                    },
-                    "appliesToAllDays": {
-                        "type": "boolean",
-                        "example": false
-                    },
                     "postulationDays": {
                         "type": "array",
                         "items": {
@@ -207,8 +198,7 @@
                 },
                 "required": [
                     "publicationId",
-                    "createdAt",
-                    "appliesToAllDays"
+                    "postulationDays"
                 ]
             },
             "Rating": {

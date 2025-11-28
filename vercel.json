@@ -11,5 +11,11 @@
             "src": "/(.*)",
             "dest": "gestiona-api/index.js"
         }
+    ],
+    "crons": [
+        {
+            "path": "/internal/cron/expire-publications",
+            "schedule": "5 3 * * *"
+        }
     ]
 }
