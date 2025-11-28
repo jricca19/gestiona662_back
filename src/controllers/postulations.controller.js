@@ -6,9 +6,9 @@ const {
     updatePostulation,
     findDuplicatePostulation,
     getPostulationsByUserId,
-    getPostulationsByPublicationId,
 } = require("../repositories/postulation.repository");
 const { findPublication } = require("../repositories/publication.repository");
+const { dateToIsoString } = require("../utils/dates");
 
 const getPostulationsController = async (req, res, next) => {
     try {
@@ -43,27 +43,13 @@ const getUserPostulationsOfUserController = async (req, res, next) => {
     }
 };
 
-const getPostulationsOfPublicationController = async (req, res, next) => {
-    try {
-        const publicationId = req.params.id;
-        console.log("publicationId", publicationId);
-        const postulations = await getPostulationsByPublicationId(publicationId);
-        if (postulations && postulations.length > 0) {
-            return res.status(200).json(postulations);
-        }
-        return res.status(404).json({ message: `No se han encontrado postulaciones para la publicación con id: ${publicationId}` });
-    } catch (error) {
-        next(error);
-    }
-};
-
-
 const postPostulationController = async (req, res, next) => {
     try {
-        const { publicationId, createdAt, appliesToAllDays, postulationDays } = req.body;
+        const { publicationId } = req.body;
+        const incomingPostulationDays = req.body.postulationDays || [];
         const { _id } = req.user;
 
-        if (!publicationId) {
+        if (!publicationId || incomingPostulationDays.length === 0) {
             return res.status(400).json({ error: "No ha ingresado todos los datos requeridos." });
         }
         const publication = await findPublication(publicationId);
@@ -76,25 +62,30 @@ const postPostulationController = async (req, res, next) => {
             return res.status(409).json({ error: "Ya existe una postulación registrada de ese maestro para esa publicación." });
         }
 
-        let finalPostulationDays = [];
+        const availableDays = (publication.publicationDays || [])
+            .filter(d => d.status === "AVAILABLE")
+            .map(d => dateToIsoString(d.date));
 
-        if (appliesToAllDays || !postulationDays || postulationDays.length === 0) {
-            // Assign all publication days if appliesToAllDays is true or postulationDays is empty
-            finalPostulationDays = publication.publicationDays.map(day => ({ date: day.date }));
-        } else {
-            const fechasValidas = publication.publicationDays.map(day => new Date(day.date).toISOString().split('T')[0]);
-
-            for (const pd of postulationDays) {
-                const fechaPostulacion = new Date(pd.date).toISOString().split('T')[0];
-                if (!fechasValidas.includes(fechaPostulacion)) {
-                    return res.status(400).json({ error: `La fecha ${fechaPostulacion} no es válida para esta publicación.` });
-                }
-            }
-
-            finalPostulationDays = postulationDays;
+        if (availableDays.length === 0) {
+            return res.status(400).json({ error: "La publicación no tiene días disponibles para postularse." });
         }
 
-        await createPostulation(_id, publicationId, createdAt, appliesToAllDays, finalPostulationDays);
+        let finalPostulationDays = incomingPostulationDays.map(pd => ({ date: dateToIsoString(pd.date) })) || [];
+
+        const uniqueDates = new Set(finalPostulationDays.map(d => d.date));
+        if (uniqueDates.size !== finalPostulationDays.length) {
+            return res.status(400).json({ error: "No se permiten fechas duplicadas en la postulación." });
+        }
+
+        for (const pd of finalPostulationDays) {
+            if (!availableDays.includes(pd.date)) {
+                return res.status(400).json({ error: `La fecha ${pd.date} no es válida o no está disponible para esta publicación.` });
+            }
+        }
+
+        const appliesToAllDays = finalPostulationDays.length === publication.publicationDays.length;
+
+        await createPostulation(_id, publicationId, appliesToAllDays, finalPostulationDays);
         return res.status(201).json({ message: "Postulación creada correctamente" });
 
     } catch (error) {
@@ -105,6 +96,13 @@ const postPostulationController = async (req, res, next) => {
 const deletePostulationController = async (req, res, next) => {
     try {
         const postulationId = req.params.id;
+        const postulation = await findPostulation(postulationId);
+        if (!postulation) {
+            return res.status(404).json({ message: `No se ha encontrado la postulación con id: ${postulationId}` });
+        }
+        if (postulation.status !== "PENDING") {
+            return res.status(400).json({ message: "Solo se pueden eliminar postulaciones con estado pendiente." });
+        }
         await deletePostulation(postulationId);
         return res.status(200).json({ message: "Postulación eliminada correctamente" })
     } catch (error) {
@@ -134,5 +132,4 @@ module.exports = {
     putPostulationController,
     deletePostulationController,
     getUserPostulationsOfUserController,
-    getPostulationsOfPublicationController,
 }

@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const Publication = require("../models/publication.model");
 const connectToRedis = require("../services/redis.service");
+const { dateStringToUTC } = require("../utils/dates");
 
 const getPublications = async (filters = {}) => {
     const hasFilters = filters && Object.keys(filters).length > 0;
@@ -17,7 +18,8 @@ const getPublications = async (filters = {}) => {
         }
 
         if (filters.startDate) {
-            query.startDate = { $gte: new Date(filters.startDate) };
+            const start = dateStringToUTC(filters.startDate);
+            query.startDate = { $gte: start };
         }
 
         let publications = await Publication.find(query)
@@ -59,61 +61,54 @@ const getPublications = async (filters = {}) => {
 };
 
 const getPublicationsBySchoolId = async (schoolId) => {
-    return await Publication.find({ schoolId }).populate({
-        path: "schoolId",
-        select: "schoolId schoolNumber departmentId cityName address",
-        populate: {
-            path: "departmentId",
-            select: "name",
-        }
-    }).select();
+    return await Publication.find({ schoolId })
+        .select("_id schoolId grade startDate endDate shift status isType662 publicationDays")
+        .populate({
+            path: "schoolId",
+            select: "schoolId schoolNumber departmentId cityName address",
+            populate: {
+                path: "departmentId",
+                select: "name",
+            }
+        })
+        .populate({
+            path: "postulations",
+            select: "teacherId status appliesToAllDays postulationDays createdAt",
+            populate: {
+                path: "teacherId",
+                select: "name lastName ci email phoneNumber role profilePhoto teacherProfile",
+            }
+        })
+        .lean();
 };
 
-const createPublication = async (schoolId, grade, startDate, endDate, shift) => {
+const createPublication = async (schoolId, grade, startDate, endDate, shift, isType662 = false, publicationDays, details) => {
     if (!mongoose.Types.ObjectId.isValid(schoolId)) {
         throw new Error(`Escuela con ID ${schoolId} inválido`);
     }
-
-    const publicationDays = await generatePublicationDays(startDate, endDate);
     const newPublication = new Publication({
         schoolId,
         grade,
         startDate,
         endDate,
         shift,
+        details,
+        isType662,
         status: "OPEN",
         publicationDays
     });
     const redisClient = connectToRedis();
     await redisClient.del("publications");
+    await redisClient.del(`publications:school:${schoolId}`);
     await newPublication.save();
     return newPublication;
-};
-
-const generatePublicationDays = async (startDate, endDate) => {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const days = [];
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const day = new Date(d);
-
-        const weekday = day.getDay();
-        if (weekday >= 1 && weekday <= 5) {
-            days.push({
-                date: new Date(day),
-                assignedTeacherId: null,
-                status: "AVAILABLE"
-            });
-        }
-    }
-    return days;
 };
 
 const findPublication = async (id) => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
         throw new Error(`No existe ID: ${id}`);
     }
-    return await Publication.findById(id).select("_id schoolId grade startDate endDate shift status publicationDays");
+    return await Publication.findById(id).select("_id schoolId grade startDate endDate shift status publicationDays isType662");
 };
 
 const findDuplicatePublication = async (schoolId, grade, shift, startDate, endDate) => {
@@ -122,8 +117,8 @@ const findDuplicatePublication = async (schoolId, grade, shift, startDate, endDa
         grade: grade,
         shift: shift,
         status: { $in: ["OPEN", "FILLED"] },
-        startDate: { $lte: new Date(endDate) },
-        endDate: { $gte: new Date(startDate) }
+        startDate: { $lte: endDate },
+        endDate: { $gte: startDate }
     }).select("_id");
 };
 
@@ -132,7 +127,11 @@ const deletePublication = async (id) => {
         throw new Error(`No existe ID: ${id}`);
     }
     const redisClient = connectToRedis();
+    const pub = await Publication.findById(id).select("schoolId").lean();
     await redisClient.del("publications");
+    if (pub?.schoolId) {
+        await redisClient.del(`publications:school:${pub.schoolId.toString()}`);
+    }
     return await Publication.deleteOne({ _id: id });
 };
 
@@ -155,11 +154,19 @@ const updatePublication = async (id, payload) => {
     const publication = await Publication.findOne({ _id: id });
 
     if (publication) {
+        const oldSchoolId = publication.schoolId?.toString();
         Object.entries(payload).forEach(([key, value]) => {
             publication[key] = value;
         });
         await publication.save();
+
+        const redisClient = connectToRedis();
+        await redisClient.del("publications");
+        await redisClient.del(`publications:school:${oldSchoolId}`);
+        await redisClient.del(`publications:school:${publication.schoolId?.toString()}`);
+        return publication;
     }
+
     const redisClient = connectToRedis();
     await redisClient.del("publications");
     return publication;

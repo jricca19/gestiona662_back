@@ -13,8 +13,18 @@ const publicationSchema = new mongoose.Schema({
   endDate: { type: Date, required: true },
   shift: { type: String, enum: ["MORNING", "AFTERNOON", "FULL_DAY"], required: true },
   details: { type: String, required: false },
+  isType662: { type: Boolean, default: false },
   status: { type: String, enum: ["OPEN", "FILLED", "CANCELLED", "EXPIRED", "COMPLETED"], default: "OPEN" },
   publicationDays: [publicationDaySchema]
 }, { timestamps: true });
+
+publicationSchema.virtual("postulations", {
+  ref: "Postulation",
+  localField: "_id",
+  foreignField: "publicationId",
+  justOne: false,
+});
+publicationSchema.set("toJSON", { virtuals: true });
+publicationSchema.set("toObject", { virtuals: true });
 
 module.exports = publicationSchema;
