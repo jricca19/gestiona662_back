@@ -51,7 +51,7 @@ privateRouter.get("/publications/:id", getPublicationController);
 privateRouter.post("/publications", roleMiddleware("STAFF"), payloadMiddleWare(createPublicationSchema), postPublicationController);
 privateRouter.delete("/publications/:id", roleMiddleware("STAFF"), deletePublicationController);
 privateRouter.put("/publications/:id", roleMiddleware("STAFF"), payloadMiddleWare(updatePublicationSchema), putPublicationController);
-privateRouter.patch("/publications/assignPostulation/multiple", roleMiddleware("STAFF"), assignPostulationController);
+privateRouter.patch("/publications/assignPostulation", roleMiddleware("STAFF"), assignPostulationController);
 
 privateRouter.get("/postulations/user", roleMiddleware("TEACHER"), getUserPostulationsOfUserController);
 privateRouter.get("/postulations/:id", getPostulationController);

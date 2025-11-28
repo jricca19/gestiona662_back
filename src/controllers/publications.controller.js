@@ -9,7 +9,7 @@ const {
 } = require("../repositories/publication.repository");
 const { deletePostulationsByPublicationId } = require("../repositories/postulation.repository");
 const { findSchoolById } = require("../repositories/school.repository");
-const { findPostulation } = require("../repositories/postulation.repository");
+const { findPostulation, updatePostulation } = require("../repositories/postulation.repository");
 const { dateToIsoString, dateStringToUTC, todayStringInTZ } = require("../utils/dates");
 
 const getPublicationsController = async (req, res, next) => {
@@ -188,55 +188,73 @@ const deletePublicationController = async (req, res, next) => {
 
 const assignPostulationController = async (req, res, next) => {
     try {
-        const asignaciones = req.body.asignaciones;
-
+        const asignaciones = req.body?.asignaciones;
         if (!Array.isArray(asignaciones) || asignaciones.length === 0) {
             return res.status(400).json({ message: "No se proporcionaron asignaciones válidas." });
         }
 
-        const publicacionesMap = new Map();
+        const postulationIds = asignaciones.map(a => a.postulationId);
+        const postulations = await Promise.all(postulationIds.map(id => findPostulation(id)));
+        for (let i = 0; i < postulations.length; i++) {
+            if (!postulations[i]) {
+                return res.status(404).json({ message: `No se encontró postulación ${postulationIds[i]}` });
+            }
+        }
+        const publicationId = postulations[0].publicationId.toString();
+        const allSame = postulations.every(p => p.publicationId.toString() === publicationId);
+        if (!allSame) {
+            return res.status(400).json({ message: "Todas las asignaciones deben pertenecer a la misma publicación." });
+        }
 
+        const publication = await findPublication(publicationId);
+        if (!publication) {
+            return res.status(404).json({ message: `No se encontró publicación ${publicationId}` });
+        }
+        if (publication.status === "FILLED") {
+            return res.status(400).json({ message: "Selección de postulantes ya realizada para esta publicación." });
+        }
+
+        const dayTeacherMap = new Map();
         for (const asignacion of asignaciones) {
-            const { postulationId, selectedDays } = asignacion;
-
-            const postulation = await findPostulation(postulationId);
-            if (!postulation) {
-                continue;
-            }
-
-            let publication = publicacionesMap.get(postulation.publicationId);
-            if (!publication) {
-                publication = await findPublication(postulation.publicationId);
-                if (!publication) continue;
-                publicacionesMap.set(postulation.publicationId, publication);
-            }
-
+            const postulation = postulations.find(p => p._id.toString() === asignacion.postulationId);
             const teacherId = postulation.teacherId;
-
-            const selectedDayStrings = selectedDays.map(d => dateToIsoString(d));
-
-            const updatedDays = publication.publicationDays.map(day => {
-                const pubDayStr = dateToIsoString(day.date);
-                if (selectedDayStrings.includes(pubDayStr)) {
-                    return {
-                        ...day,
-                        assignedTeacherId: teacherId,
-                        status: "ASSIGNED",
-                    };
+            const selectedDayStrings = (asignacion.selectedDays || [])
+                .map(d => dateToIsoString(new Date(d)));
+            for (const dayStr of selectedDayStrings) {
+                if (!dayTeacherMap.has(dayStr)) {
+                    dayTeacherMap.set(dayStr, teacherId);
                 }
-                return day;
-            });
+            }
+        }
 
-            await updatePublication(publication._id, { publicationDays: updatedDays });
-
-            publicacionesMap.set(publication._id.toString(), {
-                ...publication,
-                publicationDays: updatedDays,
+        const publicationDayStrings = publication.publicationDays.map(d => dateToIsoString(d.date));
+        const missingDays = publicationDayStrings.filter(d => !dayTeacherMap.has(d));
+        if (missingDays.length > 0) {
+            return res.status(400).json({
+                message: "Faltan asignaciones para los días: " + missingDays.join(", "),
             });
         }
 
-        return res.status(200).json({ message: "Postulaciones asignadas correctamente." });
+        publication.publicationDays = publication.publicationDays.map(day => {
+            const pubDayStr = dateToIsoString(day.date);
+            if (dayTeacherMap.has(pubDayStr)) {
+                return {
+                    ...day,
+                    assignedTeacherId: dayTeacherMap.get(pubDayStr),
+                    status: "ASSIGNED",
+                };
+            }
+            return day;
+        });
 
+        await Promise.all(postulations.map(p => updatePostulation(p._id, { status: "ACCEPTED" })));
+
+        await updatePublication(publicationId, {
+            publicationDays: publication.publicationDays,
+            status: "FILLED",
+        });
+
+        return res.status(200).json({ message: "Postulaciones asignadas correctamente." });
     } catch (error) {
         console.error("Error en asignación múltiple:", error);
         next(error);
