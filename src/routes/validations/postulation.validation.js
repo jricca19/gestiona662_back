@@ -1,4 +1,4 @@
-const { dateToString } = require("../../utils/dates");
+const { dateToIsoString } = require("../../utils/dates");
 const Joi = require("joi");
 
 const postulationDaySchema = Joi.object({
@@ -16,7 +16,7 @@ const createPostulationSchema = Joi.object({
     postulationDays: Joi.array()
         .items(postulationDaySchema)
         .min(1)
-        .unique((a, b) => dateToString(a.date) === dateToString(b.date))
+        .unique((a, b) => dateToIsoString(a.date) === dateToIsoString(b.date))
         .required()
         .messages({
         'array.base': 'postulationDays debe ser un arreglo de fechas',

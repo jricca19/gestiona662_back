@@ -8,7 +8,7 @@ const {
     assignPostulationController,
     deletePublicationController,
     putPublicationController,
-    getSchoolPublicationsController
+    getPublicationsOfSchoolController
 } = require("../controllers/publications.controller");
 
 const {
@@ -26,7 +26,6 @@ const {
     deletePostulationController,
     putPostulationController,
     getUserPostulationsOfUserController,
-    getPostulationsOfPublicationController,
 } = require("../controllers/postulations.controller");
 
 const {
@@ -39,23 +38,22 @@ const {
 const { putTeacherProfile, putUserProfile, getUserProfile } = require("../controllers/user.controller");
 
 const payloadMiddleWare = require("../middlewares/payload.middleware");
-const { createPublicationSchema, updatePublicationSchema, getUserPublicationsSchema } = require("./validations/publication.validation");
+const { createPublicationSchema, updatePublicationSchema } = require("./validations/publication.validation");
 const { createPostulationSchema, updatePostulationSchema } = require("./validations/postulation.validation");
 const { updateUserValidationSchema, updateTeacherValidationSchema } = require("./validations/user.validation");
 const { ratingValidationSchema, ratingsValidationSchema } = require("./validations/rating.validation");
 const roleMiddleware = require("../middlewares/role.middleware");
 const { schoolValidationSchema, updateSchoolValidationSchema } = require("./validations/school.validation");
-//
+
 privateRouter.get("/publications", roleMiddleware("TEACHER"), getPublicationsController);
-privateRouter.post("/publications/school", roleMiddleware("STAFF"), payloadMiddleWare(getUserPublicationsSchema), getSchoolPublicationsController);
+privateRouter.get("/publications/school/:id", roleMiddleware("STAFF"), getPublicationsOfSchoolController);
 privateRouter.get("/publications/:id", getPublicationController);
 privateRouter.post("/publications", roleMiddleware("STAFF"), payloadMiddleWare(createPublicationSchema), postPublicationController);
 privateRouter.delete("/publications/:id", roleMiddleware("STAFF"), deletePublicationController);
 privateRouter.put("/publications/:id", roleMiddleware("STAFF"), payloadMiddleWare(updatePublicationSchema), putPublicationController);
-privateRouter.patch("/publications/assignPostulation/multiple", roleMiddleware("STAFF"), assignPostulationController);
+privateRouter.patch("/publications/assignPostulation", roleMiddleware("STAFF"), assignPostulationController);
 
 privateRouter.get("/postulations/user", roleMiddleware("TEACHER"), getUserPostulationsOfUserController);
-privateRouter.get("/postulations/publication/:id", roleMiddleware("STAFF"), getPostulationsOfPublicationController);
 privateRouter.get("/postulations/:id", getPostulationController);
 privateRouter.post("/postulations", roleMiddleware("TEACHER"), payloadMiddleWare(createPostulationSchema), postPostulationController);
 privateRouter.delete("/postulations/:id", roleMiddleware("TEACHER"), deletePostulationController);
