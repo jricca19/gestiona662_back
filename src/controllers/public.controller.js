@@ -2,6 +2,7 @@ const Department = require("../models/department.model");
 const School = require("../models/school.model");
 const { getDepartments, findDepartmentById, findCityByName } = require("../repositories/department.repository");
 const { createSchool } = require("../repositories/school.repository");
+const { expirePublicationsTask } = require("../jobs/expirePublications.job");
 
 const healthController = (req, res) => {
   res.status(200).send({
@@ -64,10 +65,29 @@ const getDepartmentController = async (req, res) => {
   }
 };
 
+const expirePublicationsController = async (req, res) => {
+  try {
+    const vercelCronHeader = req.headers["x-vercel-cron"];
+    const headerSecret = req.headers["x-cron-secret"];
+    const cronSecret = process.env.CRON_SECRET;
+    const authorized = Boolean(vercelCronHeader) || (cronSecret ? headerSecret === cronSecret : false);
+    if (!authorized) {
+      return res.status(401).json({ ok: false, error: "Unauthorized" });
+    }
+
+    const result = await expirePublicationsTask();
+    return res.json({ ok: true, ...result });
+  } catch (error) {
+    console.error("Error ejecutando expirePublicationsTask:", error);
+    return res.status(500).json({ ok: false, error: "Internal Server Error" });
+  }
+};
+
 module.exports = {
   healthController,
   getDepartmentsController,
   getDepartmentController,
   getSchoolsSelectController,
-  postSchoolController
+  postSchoolController,
+  expirePublicationsController
 };
